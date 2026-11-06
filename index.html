@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Assistant Data AI</title>
+  <meta name="description" content="Interrogez vos données en langage naturel : réponses, graphiques, tableaux, prévisions et rapports.">
+  <link rel="icon" href="static/img/robot.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="static/css/style.css">
+  <script defer src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.1.6/dist/purify.min.js"></script>
+  <script defer src="static/js/app.js"></script>
+</head>
+<body>
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <!-- ================= En-tête ================= -->
+  <header class="topbar" id="topbar">
+    <a class="brand" href="#chat" data-view-link="chat" aria-label="Accueil">
+      <img class="brand-logo" src="static/img/robot.svg" alt="" width="52" height="52">
+      <span class="brand-text">
+        <span class="brand-title">Assistant Data <em>AI</em></span>
+        <span class="brand-sub">Vos données en langage naturel — réponses, graphiques et rapports en quelques secondes.</span>
+      </span>
+    </a>
+    <button class="nav-toggle" id="nav-toggle" aria-label="Ouvrir le menu" aria-expanded="false">☰</button>
+    <nav class="nav" id="nav">
+      <a href="#chat" data-view-link="chat"><span>🏠</span> Accueil</a>
+      <a href="#mission" data-view-link="mission"><span>🎯</span> Agent analyste</a>
+      <a href="#research" data-view-link="research"><span>🔎</span> Recherche</a>
+      <a href="#guide" data-view-link="guide"><span>📖</span> Guide</a>
+      <a href="#about" data-view-link="about"><span>ℹ️</span> À propos</a>
+    </nav>
+  </header>
+
+  <div id="alerts" class="alerts" hidden></div>
+
+  <main class="container">
+
+    <!-- ================= Accueil : assistant ================= -->
+    <section class="view" id="view-chat" data-view="chat">
+      <div class="workspace">
+
+        <!-- Conversation -->
+        <article class="card chat-card">
+          <div class="card-head">
+            <h2 class="card-title"><span class="title-icon">💬</span> Conversation</h2>
+            <button class="btn btn-ghost btn-sm" id="reset-btn" title="Nouvelle conversation">↺ Nouveau</button>
+          </div>
+
+          <div class="chat" id="chat" aria-live="polite"></div>
+
+          <form class="composer" id="ask-form" autocomplete="off">
+            <textarea id="ask-input" rows="2" placeholder="Posez votre question en langage naturel…" aria-label="Votre question"></textarea>
+            <button class="btn btn-gold" id="ask-btn" type="submit" disabled>
+              <span class="btn-label">Analyser</span><span class="btn-arrow">➜</span>
+            </button>
+          </form>
+          <p class="composer-hint">Entrée pour envoyer · Maj + Entrée pour aller à la ligne</p>
+
+          <div class="chips" id="chips"></div>
+
+          <p class="plain" id="plain" hidden></p>
+          <details class="fold" id="sql-fold" hidden>
+            <summary>🧾 Requête SQL générée</summary>
+            <div class="code-wrap">
+              <button class="copy-btn" data-copy="sql-code" title="Copier">⧉ Copier</button>
+              <pre><code id="sql-code"></code></pre>
+            </div>
+          </details>
+        </article>
+
+        <!-- Résultats -->
+        <article class="card results-card">
+          <div class="card-head">
+            <h2 class="card-title"><span class="title-icon">📊</span> Résultats</h2>
+            <div class="badges" id="badges"></div>
+          </div>
+
+          <div class="inner-panel" id="results">
+            <div class="empty-state" id="results-empty">
+              <div class="empty-icon">📊</div>
+              <h3>Vos résultats apparaîtront ici</h3>
+              <p>Posez une question ou choisissez une suggestion : chiffres clés, graphique et tableau s'afficheront automatiquement.</p>
+            </div>
+            <div class="skeleton" id="results-loading" hidden>
+              <div class="sk sk-line"></div><div class="sk sk-chips"></div><div class="sk sk-chart"></div>
+            </div>
+            <div id="highlights"></div>
+            <div class="chart" id="chart" hidden></div>
+            <div class="table-wrap" id="table-wrap" hidden>
+              <table class="data-table" id="table"></table>
+            </div>
+            <div class="downloads" id="downloads"></div>
+          </div>
+
+          <details class="fold" id="tech-fold">
+            <summary>🔍 Détails techniques</summary>
+            <div class="tabs" role="tablist">
+              <button class="tab active" data-tab="trace" role="tab">Traçabilité</button>
+              <button class="tab" data-tab="warnings" role="tab">Avertissements</button>
+            </div>
+            <div class="tab-panel md" id="tab-trace"><p class="muted">La méthode de calcul s'affichera ici.</p></div>
+            <div class="tab-panel md" id="tab-warnings" hidden><p class="muted">Aucun avertissement.</p></div>
+          </details>
+        </article>
+
+        <!-- Menu latéral -->
+        <aside class="sidebar">
+          <section class="side-card">
+            <h3 class="side-title">🎛️ Filtres</h3>
+            <label class="field"><span>Année</span>
+              <select id="year-filter"><option value="Toutes">Toutes</option></select>
+            </label>
+            <label class="field"><span>Région</span>
+              <select id="region-filter"><option value="Toutes">Toutes</option></select>
+            </label>
+          </section>
+          <section class="side-card">
+            <h3 class="side-title">💡 Pour commencer</h3>
+            <div class="side-list" id="examples"></div>
+          </section>
+          <section class="side-card">
+            <h3 class="side-title">📚 Mots-clés</h3>
+            <div id="glossary"></div>
+          </section>
+          <section class="side-card">
+            <h3 class="side-title">🕘 Historique récent</h3>
+            <div class="side-list" id="history"><p class="muted small">Vos questions apparaîtront ici.</p></div>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ================= Agent analyste ================= -->
+    <section class="view" id="view-mission" data-view="mission" hidden>
+      <article class="card page">
+        <div class="page-top">
+          <div class="page-hero">
+            <div class="page-hero-icon">🎯</div>
+            <div>
+              <h1>Agent analyste</h1>
+              <p>Confiez un <b>objectif</b> à l'agent : il établit un plan, enchaîne les analyses sur vos données, puis rédige un rapport avec constats, causes possibles et recommandations. Les filtres Année / Région s'appliquent.</p>
+            </div>
+          </div>
+          <a class="btn btn-back" href="#chat">← Retour à l'accueil</a>
+        </div>
+
+        <form class="composer composer-wide" id="mission-form">
+          <textarea id="mission-input" rows="2" placeholder="Ex. : Pourquoi la marge baisse-t-elle dans le Sud ?" aria-label="Objectif de la mission"></textarea>
+          <button class="btn btn-gold" id="mission-btn" type="submit">🚀 Lancer la mission</button>
+        </form>
+        <div class="example-row"><span class="example-label">Exemples :</span><div class="chips" id="mission-examples"></div></div>
+
+        <div id="mission-progress"></div>
+        <div class="report md" id="mission-report" hidden></div>
+        <div class="downloads" id="mission-downloads"></div>
+        <div class="mission-steps-grid" id="mission-steps"></div>
+      </article>
+    </section>
+
+    <!-- ================= Recherche documentée ================= -->
+    <section class="view" id="view-research" data-view="research" hidden>
+      <article class="card page">
+        <div class="page-top">
+          <div class="page-hero">
+            <div class="page-hero-icon">🔎</div>
+            <div>
+              <h1>Recherche documentée</h1>
+              <p>Interrogez le web : l'assistant cherche, croise plusieurs sources et rédige une <b>synthèse sourcée</b>. Idéal pour mettre vos chiffres en perspective : tendances de marché, conjoncture, réglementation, bonnes pratiques.</p>
+            </div>
+          </div>
+          <a class="btn btn-back" href="#chat">← Retour à l'accueil</a>
+        </div>
+
+        <form class="composer composer-wide" id="research-form">
+          <textarea id="research-input" rows="2" placeholder="Ex. : Quelles sont les tendances du commerce de détail en France ?" aria-label="Question de recherche"></textarea>
+          <button class="btn btn-gold" id="research-btn" type="submit">🔎 Rechercher</button>
+        </form>
+        <div class="example-row"><span class="example-label">Exemples :</span><div class="chips" id="research-examples"></div></div>
+
+        <div id="research-status">
+          <div class="empty-state">
+            <div class="empty-icon">🔎</div>
+            <h3>Une question, une synthèse sourcée</h3>
+            <p>L'assistant interroge le web, croise plusieurs sources et rédige une synthèse avec les liens vers chaque source pour vérification.</p>
+          </div>
+        </div>
+        <div class="research-results" id="research-results" hidden>
+          <div class="report md" id="research-answer"></div>
+          <aside class="research-side" id="research-sources"></aside>
+        </div>
+      </article>
+    </section>
+
+    <!-- ================= Guide des données ================= -->
+    <section class="view" id="view-guide" data-view="guide" hidden>
+      <article class="card page">
+        <div class="page-top">
+          <div class="page-hero">
+            <div class="page-hero-icon">📖</div>
+            <div>
+              <h1>Guide des données</h1>
+              <p>Tout ce qu'il faut savoir pour bien interroger vos données : <b>KPI officiels</b>, dictionnaire métier, lexique de l'analyse, sources et règles de sécurité.</p>
+            </div>
+          </div>
+          <a class="btn btn-back" href="#chat">← Retour à l'accueil</a>
+        </div>
+        <div class="search-box">
+          <span>🔍</span>
+          <input id="guide-search" type="search" placeholder="Rechercher un indicateur, une colonne, un terme… (ex. : marge, région, MAPE)" aria-label="Rechercher dans le guide">
+        </div>
+        <div id="guide-content"><div class="skeleton"><div class="sk sk-chart"></div></div></div>
+      </article>
+    </section>
+
+    <!-- ================= À propos ================= -->
+    <section class="view" id="view-about" data-view="about" hidden>
+      <div class="page-top page-top-plain">
+        <a class="btn btn-back" href="#chat">← Retour à l'accueil</a>
+      </div>
+      <div id="about-page">
+        <div class="about-hero">
+          <div class="about-hero-icon"><img src="static/img/robot.svg" alt="" width="58" height="58"></div>
+          <div>
+            <h1>À propos de l'Assistant</h1>
+            <p>Comprendre le rôle, le fonctionnement et la valeur d'Assistant Data AI dans l'entreprise.</p>
+          </div>
+        </div>
+
+        <div class="about-grid">
+          <div class="about-card"><div class="about-card-icon">🎯</div><h2>Objectif de l'Assistant</h2>
+            <p>Assistant Data AI permet d'interroger les données de l'entreprise en langage naturel, sans avoir besoin de maîtriser SQL ou les outils de reporting.</p>
+            <p>L'objectif est de rendre l'information plus accessible, plus rapide à obtenir et plus simple à exploiter.</p></div>
+          <div class="about-card"><div class="about-card-icon">💼</div><h2>Le côté métier</h2>
+            <p>L'Assistant transforme une question métier en une analyse exploitable à travers des indicateurs, des tableaux et des visualisations.</p>
+            <ul><li>Suivre les indicateurs d'activité</li><li>Comparer des périodes ou des périmètres</li><li>Analyser les régions et les produits</li><li>Identifier des évolutions et des écarts</li><li>Préparer rapidement une analyse métier</li></ul></div>
+          <div class="about-card"><div class="about-card-icon">📊</div><h2>Les données au cœur de l'analyse</h2>
+            <p>L'Assistant s'appuie sur les données disponibles dans l'environnement de l'entreprise afin de produire des résultats cohérents avec le périmètre accessible.</p>
+            <div class="about-flow-mini"><span>Question</span><span>→</span><span>Données</span><span>→</span><span>Analyse</span><span>→</span><span>Résultat</span></div></div>
+        </div>
+
+        <div class="about-section">
+          <div class="about-section-title"><span>🔄</span><div><h2>Comment ça fonctionne ?</h2><p>De la question métier jusqu'au résultat.</p></div></div>
+          <div class="about-process">
+            <div class="about-step"><div class="about-step-number">1</div><strong>Question métier</strong><span>L'utilisateur formule sa demande en langage naturel.</span></div><div class="about-arrow">→</div>
+            <div class="about-step"><div class="about-step-number">2</div><strong>Compréhension</strong><span>L'Assistant interprète la demande et son contexte.</span></div><div class="about-arrow">→</div>
+            <div class="about-step"><div class="about-step-number">3</div><strong>Requête</strong><span>La demande est traduite en interrogation des données.</span></div><div class="about-arrow">→</div>
+            <div class="about-step"><div class="about-step-number">4</div><strong>Analyse</strong><span>Les résultats sont analysés et mis en forme.</span></div><div class="about-arrow">→</div>
+            <div class="about-step"><div class="about-step-number">5</div><strong>Restitution</strong><span>KPI, tableau, graphique et réponse en langage clair.</span></div>
+          </div>
+        </div>
+
+        <div class="about-section">
+          <div class="about-section-title"><span>🧭</span><div><h2>Les espaces de l'application</h2><p>Quatre façons d'exploiter vos données.</p></div></div>
+          <div class="about-spaces">
+            <a class="about-space" href="#chat"><b>💬 Assistant</b><span>Questions en langage naturel : réponse, graphique, tableau et exports (CSV, Excel, PowerPoint).</span></a>
+            <a class="about-space" href="#mission"><b>🎯 Agent analyste</b><span>Un objectif, un plan d'analyse, puis un rapport complet avec constats et recommandations.</span></a>
+            <a class="about-space" href="#research"><b>🔎 Recherche</b><span>Veille sur le web avec synthèse et sources citées, pour mettre vos chiffres en perspective.</span></a>
+            <a class="about-space" href="#guide"><b>📖 Guide</b><span>KPI officiels, dictionnaire métier, lexique et conseils pour bien poser vos questions.</span></a>
+          </div>
+        </div>
+
+        <div class="about-two-columns">
+          <div class="about-section">
+            <div class="about-section-title"><span>🚀</span><div><h2>Valeur ajoutée pour l'entreprise</h2><p>Pourquoi utiliser Assistant Data AI ?</p></div></div>
+            <div class="about-value-list">
+              <div><b>⏱ Gain de temps</b><span>Accéder rapidement à une information sans construire manuellement une requête.</span></div>
+              <div><b>🎯 Autonomie métier</b><span>Permettre aux équipes métier d'explorer les données plus facilement.</span></div>
+              <div><b>📊 Accessibilité de la donnée</b><span>Rendre les données accessibles aux utilisateurs non techniques.</span></div>
+              <div><b>🔎 Aide à la décision</b><span>Faire ressortir rapidement tendances, écarts et indicateurs importants.</span></div>
+              <div><b>💡 Culture Data</b><span>Encourager une utilisation plus régulière des données dans les décisions.</span></div>
+            </div>
+          </div>
+          <div class="about-section about-limits">
+            <div class="about-section-title"><span>⚠️</span><div><h2>Limites et bonnes pratiques</h2><p>Un assistant d'analyse, pas une vérité absolue.</p></div></div>
+            <div class="about-warning"><strong>Assistant Data AI est un outil d'aide à l'analyse.</strong><p>Il ne remplace pas l'expertise métier ni la validation des données.</p></div>
+            <ul><li>Les réponses dépendent de la qualité des données.</li><li>Une question ambiguë peut être interprétée différemment.</li><li>Les résultats doivent être replacés dans leur contexte métier.</li><li>Une décision importante doit être vérifiée.</li><li>L'Assistant ne travaille que sur les données auxquelles il a accès.</li><li>Une absence de résultat ne signifie pas nécessairement une absence d'activité.</li></ul>
+          </div>
+        </div>
+
+        <div class="about-section">
+          <div class="about-section-title"><span>🔒</span><div><h2>Transparence et confiance</h2><p>Comprendre comment une réponse est construite.</p></div></div>
+          <div class="about-transparency-flow">
+            <div><span>Question</span><small>Demande utilisateur</small></div><b>→</b>
+            <div><span>Filtres</span><small>Année · Région</small></div><b>→</b>
+            <div><span>Requête</span><small>Validée, lecture seule</small></div><b>→</b>
+            <div><span>Résultats</span><small>Données retournées</small></div><b>→</b>
+            <div><span>Visualisation</span><small>KPI · Tableau · Graphique</small></div>
+          </div>
+          <p class="about-footer-note">L'objectif est de proposer une analyse compréhensible, contextualisée et exploitable par les utilisateurs métier.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>Assistant Data AI</span><span>·</span><span>Requêtes validées en lecture seule</span><span>·</span><a href="#guide">Guide des données</a>
+  </footer>
+
+  <div class="toasts" id="toasts" aria-live="polite"></div>
+</body>
+</html>
